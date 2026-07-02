@@ -1,3 +1,7 @@
+const { setDefaultResultOrder } = require("dns");
+setDefaultResultOrder("ipv4first");
+
+
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -5,7 +9,12 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5173",  // your Vite frontend URL
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+}));
 app.use(express.json());
 
 // Routes

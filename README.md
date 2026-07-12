@@ -1,4 +1,4 @@
-# CareerConnect: Placement & Internship Portal
+# CareerConnect: College Placement Portal
 
 CareerConnect is a modern, full-stack placement and internship tracking web application. It simplifies communication between TPO (Training & Placement Officer) Administrators, Partner Company Recruiters, and Students.
 

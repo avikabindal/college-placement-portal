@@ -18,19 +18,21 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
-const authRoutes        = require("./routes/auth.routes");
-const studentRoutes     = require("./routes/student.routes");
-const companyRoutes     = require("./routes/company.routes");
-const opportunityRoutes = require("./routes/opportunity.routes");
-const applicationRoutes = require("./routes/application.routes");
-const dashboardRoutes   = require("./routes/dashboard.routes");
+const authRoutes         = require("./routes/auth.routes");
+const studentRoutes      = require("./routes/student.routes");
+const companyRoutes      = require("./routes/company.routes");
+const opportunityRoutes  = require("./routes/opportunity.routes");
+const applicationRoutes  = require("./routes/application.routes");
+const dashboardRoutes    = require("./routes/dashboard.routes");
+const notificationRoutes = require("./routes/notification.routes");
 
-app.use("/users",        authRoutes);
-app.use("/students",     studentRoutes);
-app.use("/companies",    companyRoutes);
-app.use("/opportunities",opportunityRoutes);
-app.use("/applications", applicationRoutes);
-app.use("/dashboard",    dashboardRoutes);
+app.use("/users",             authRoutes);
+app.use("/students",          studentRoutes);
+app.use("/companies",         companyRoutes);
+app.use("/opportunities",     opportunityRoutes);
+app.use("/applications",      applicationRoutes);
+app.use("/dashboard",         dashboardRoutes);
+app.use("/users/notifications", notificationRoutes);
 
 // Health check
 app.get("/", (req, res) => {

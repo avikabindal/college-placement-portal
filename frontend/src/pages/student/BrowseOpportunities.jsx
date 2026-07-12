@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
+import { useAuth } from "../../context/AuthContext";
 
 const getInitials = (name = "") =>
   name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -27,6 +28,7 @@ const cardColors = [
 ];
 
 const BrowseOpportunities = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [opportunities, setOpportunities] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -42,12 +44,22 @@ const BrowseOpportunities = () => {
   useEffect(() => {
     api.get("/opportunities")
       .then((res) => {
-        setOpportunities(res.data);
-        setFiltered(res.data);
+        const sorted = (res.data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setOpportunities(sorted);
+        setFiltered(sorted);
       })
       .catch(() => setError("Failed to load opportunities."))
       .finally(() => setLoading(false));
-  }, []);
+
+    if (user?.id) {
+      api.get(`/applications/student/${user.id}`)
+        .then((res) => {
+          const opportunityIds = new Set((res.data || []).map(app => app.opportunity_id));
+          setApplied(opportunityIds);
+        })
+        .catch((err) => console.error("Failed to load applied opportunities:", err));
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     let result = opportunities;
@@ -183,19 +195,23 @@ const BrowseOpportunities = () => {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-surface border border-outline-variant rounded-2xl p-6 animate-pulse">
-              <div className="w-16 h-16 bg-surface-container rounded-xl mb-4" />
-              <div className="h-5 bg-surface-container rounded w-48 mb-2" />
-              <div className="h-4 bg-surface-container rounded w-32 mb-4" />
-              <div className="h-3 bg-surface-container rounded w-full" />
+            <div key={i} className="bg-surface border border-outline-variant rounded-2xl p-6 flex flex-col gap-4">
+              <div className="w-16 h-16 skeleton-loader" />
+              <div className="h-6 w-3/4 skeleton-loader" />
+              <div className="h-4 w-1/2 skeleton-loader" />
+              <div className="h-20 w-full skeleton-loader mt-2" />
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 bg-surface border border-outline-variant rounded-2xl">
-          <p className="text-4xl mb-3">💼</p>
-          <h3 className="text-lg font-semibold text-on-surface">No opportunities match</h3>
-          <p className="text-on-surface-variant text-sm mt-1">Try adjusting your search or filters</p>
+        <div className="text-center py-16 px-4 bg-surface border border-outline-variant rounded-2xl max-w-lg mx-auto flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center text-primary">
+            <span className="material-symbols-outlined text-3xl">search_off</span>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-on-surface">No Opportunities Found</h3>
+            <p className="text-on-surface-variant text-xs mt-1 max-w-sm">We couldn't find any job drives matching your criteria. Try adjusting your search query or location filter.</p>
+          </div>
         </div>
       ) : (
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -210,7 +226,7 @@ const BrowseOpportunities = () => {
             return (
               <div
                 key={opp.id}
-                className="bg-surface border border-outline-variant rounded-2xl overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-[0px_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]"
+                className="bg-surface border border-outline-variant rounded-2xl overflow-hidden flex flex-col hover-lift shadow-sm"
               >
                 <div className="p-6 flex flex-col gap-4 flex-grow">
                   {/* Logo + Badge */}

@@ -1,19 +1,53 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear location state so the message doesn't persist on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
+  // Forgot password states
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState(null);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotLoading(true);
+    setForgotMessage(null);
+    try {
+      await api.post("/users/forgot-password", { email: forgotEmail });
+      setForgotMessage({ type: "success", text: "A recovery link has been sent to your email!" });
+    } catch (err) {
+      setForgotMessage({
+        type: "error",
+        text: err.response?.data?.error || "Failed to send recovery email. Please check the address."
+      });
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -58,7 +92,7 @@ const Login = () => {
         {/* Main content */}
         <main className="flex-grow flex items-center justify-center p-6 relative z-10">
           <div
-            className="relative w-full max-w-[480px] bg-white rounded-xl overflow-hidden border border-gray-200"
+            className="relative w-full max-w-[480px] bg-white rounded-xl overflow-hidden border border-gray-200 hover-lift transition-all duration-300"
             style={{
               boxShadow:
                 "0 4px 24px -2px rgba(0,55,176,0.08), 0 2px 8px -2px rgba(0,55,176,0.04)",
@@ -92,6 +126,13 @@ const Login = () => {
                   </div>
                 )}
 
+                {successMessage && (
+                  <div className="p-3.5 bg-green-50 border border-green-200 text-green-800 rounded-xl text-xs font-bold flex items-start gap-2">
+                    <span className="material-symbols-outlined text-sm shrink-0 text-green-600">check_circle</span>
+                    <span>{successMessage}</span>
+                  </div>
+                )}
+
                 {/* Email */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700">Email Address</label>
@@ -108,7 +149,7 @@ const Login = () => {
                       value={form.email}
                       onChange={handleChange}
                       placeholder="name@university.edu"
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus-glow transition-all text-sm"
                     />
                   </div>
                 </div>
@@ -117,9 +158,17 @@ const Login = () => {
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <label className="text-sm font-medium text-gray-700">Password</label>
-                    <a href="#" className="text-xs font-semibold text-blue-700 hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotModal(true);
+                        setForgotEmail("");
+                        setForgotMessage(null);
+                      }}
+                      className="text-xs font-semibold text-blue-700 hover:underline cursor-pointer bg-transparent border-0 outline-none"
+                    >
                       Forgot password?
-                    </a>
+                    </button>
                   </div>
                   <div className="relative">
                     <span
@@ -134,7 +183,7 @@ const Login = () => {
                       value={form.password}
                       onChange={handleChange}
                       placeholder="Enter your password"
-                      className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
+                      className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-300 rounded-lg focus-glow transition-all text-sm"
                     />
                     <button
                       type="button"
@@ -205,6 +254,72 @@ const Login = () => {
         <footer className="p-6 text-center relative z-10">
           <p className="text-xs text-white/70">© 2024 CareerConnect. All rights reserved.</p>
         </footer>
+        {/* Forgot Password Modal */}
+        {showForgotModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl border border-outline-variant p-6 max-w-md w-full shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-xl pointer-events-none" />
+              
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-on-surface">Password Recovery</h3>
+                  <p className="text-xs text-on-surface-variant mt-1">Enter your account email below, and we will send you a secure password reset link.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(false)}
+                  className="p-1 text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+              </div>
+
+              {forgotMessage && (
+                <div
+                  className={`mb-4 px-3.5 py-2.5 rounded-xl text-xs font-bold border ${
+                    forgotMessage.type === "success"
+                      ? "bg-green-50 text-green-800 border-green-200"
+                      : "bg-red-50 text-red-800 border-red-200"
+                  }`}
+                >
+                  {forgotMessage.text}
+                </div>
+              )}
+
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Email Address</label>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => { setForgotEmail(e.target.value); setForgotMessage(null); }}
+                    placeholder="e.g. name@university.edu"
+                    className="w-full px-4 py-2.5 border border-outline-variant bg-surface-bright rounded-lg text-sm focus-glow bg-white"
+                    required
+                    disabled={forgotLoading}
+                  />
+                </div>
+
+                <div className="flex gap-3 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="px-4 py-2 border border-outline-variant text-on-surface text-xs font-bold rounded-xl hover:bg-surface-container transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading || !forgotEmail}
+                    className="px-5 py-2 bg-primary text-on-primary text-xs font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+                  >
+                    {forgotLoading ? "Sending..." : "Send Reset Link"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

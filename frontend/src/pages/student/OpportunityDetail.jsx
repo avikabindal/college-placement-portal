@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
+import { useAuth } from "../../context/AuthContext";
 
 const OpportunityDetail = () => {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [opp, setOpp] = useState(null);
@@ -11,6 +13,7 @@ const OpportunityDetail = () => {
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [coverNote, setCoverNote] = useState("");
+  const [resumeUrl, setResumeUrl] = useState("");
   const [showNoteForm, setShowNoteForm] = useState(false);
 
   useEffect(() => {
@@ -18,14 +21,36 @@ const OpportunityDetail = () => {
       .then((res) => setOpp(res.data))
       .catch(() => setError("Failed to load opportunity."))
       .finally(() => setLoading(false));
-  }, [id]);
+
+    api.get("/students/profile")
+      .then((res) => {
+        if (res.data?.resume_url) {
+          setResumeUrl(res.data.resume_url);
+        }
+      })
+      .catch((err) => console.log("Profile prefill fetch error:", err));
+
+    if (user?.id) {
+      api.get(`/applications/student/${user.id}`)
+        .then((res) => {
+          const hasApplied = (res.data || []).some(app => app.opportunity_id === id);
+          setApplied(hasApplied);
+        })
+        .catch((err) => console.error("Failed to load application status:", err));
+    }
+  }, [id, user?.id]);
 
   const handleApply = async () => {
+    if (!resumeUrl) {
+      alert("Resume Link is required to submit your application.");
+      return;
+    }
     setApplying(true);
     try {
       await api.post("/applications", {
         opportunity_id: id,
         cover_note: coverNote,
+        resume_url: resumeUrl,
       });
       setApplied(true);
       setShowNoteForm(false);
@@ -132,30 +157,50 @@ const OpportunityDetail = () => {
             )}
           </div>
 
-          {/* Cover Note Form */}
+          {/* Cover Note & Resume Form */}
           {showNoteForm && !applied && (
-            <div className="mt-6 p-5 bg-surface-container-low rounded-xl border border-outline-variant">
-              <label className="block text-sm font-medium text-on-surface-variant mb-2">
-                Cover note <span className="text-on-surface-variant/60">(optional)</span>
-              </label>
-              <textarea
-                value={coverNote}
-                onChange={(e) => setCoverNote(e.target.value)}
-                placeholder="Why are you interested in this role?"
-                rows={4}
-                className="w-full px-4 py-3 border border-outline-variant rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-surface"
-              />
-              <div className="flex gap-3 mt-3">
+            <div className="mt-6 p-5 bg-surface-container-low rounded-xl border border-outline-variant space-y-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+                  Resume Link (CV URL) <span className="text-error font-bold">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={resumeUrl}
+                  onChange={(e) => setResumeUrl(e.target.value)}
+                  placeholder="e.g. https://drive.google.com/file/d/... or Adobe Acrobat link"
+                  className="w-full px-4 py-2.5 border border-outline-variant bg-surface rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                />
+                <p className="text-[10px] text-on-surface-variant italic">
+                  Prefilled from your profile. Feel free to override specifically for this drive.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+                  Cover note <span className="text-on-surface-variant/65">(optional)</span>
+                </label>
+                <textarea
+                  value={coverNote}
+                  onChange={(e) => setCoverNote(e.target.value)}
+                  placeholder="Why are you interested in this role?"
+                  rows={4}
+                  className="w-full px-4 py-3 border border-outline-variant rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-surface"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={handleApply}
                   disabled={applying}
-                  className="px-6 py-2.5 bg-primary text-on-primary text-sm font-semibold rounded-lg disabled:opacity-50 hover:opacity-90 transition-opacity"
+                  className="px-6 py-2.5 bg-primary text-on-primary text-sm font-semibold rounded-lg disabled:opacity-50 hover:opacity-90 transition-opacity cursor-pointer"
                 >
                   {applying ? "Submitting..." : "Submit Application"}
                 </button>
                 <button
                   onClick={() => { setShowNoteForm(false); setCoverNote(""); }}
-                  className="px-6 py-2.5 border border-outline-variant text-on-surface-variant text-sm font-medium rounded-lg hover:bg-surface-container"
+                  className="px-6 py-2.5 border border-outline-variant text-on-surface-variant text-sm font-medium rounded-lg hover:bg-surface-container cursor-pointer"
                 >
                   Cancel
                 </button>

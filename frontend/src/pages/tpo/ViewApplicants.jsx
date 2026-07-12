@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../../api/axios";
+import ResumeModal from "../../components/ResumeModal";
 
 const STATUS_OPTIONS = [
   "applied", "under_review", "shared_with_company",
@@ -8,27 +9,40 @@ const STATUS_OPTIONS = [
 
 const statusColor = (status) => {
   const map = {
-    applied: "bg-blue-100 text-blue-700",
-    under_review: "bg-yellow-100 text-yellow-700",
-    shared_with_company: "bg-purple-100 text-purple-700",
-    shortlisted: "bg-indigo-100 text-indigo-700",
-    assessment: "bg-orange-100 text-orange-700",
-    interview: "bg-cyan-100 text-cyan-700",
-    selected: "bg-green-100 text-green-700",
-    rejected: "bg-red-100 text-red-700",
+    applied: "bg-blue-50 text-blue-700 border-blue-200",
+    under_review: "bg-amber-50 text-amber-800 border-amber-200",
+    shared_with_company: "bg-purple-50 text-purple-700 border-purple-200",
+    shortlisted: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    assessment: "bg-orange-50 text-on-tertiary-fixed-variant border-orange-200",
+    interview: "bg-cyan-50 text-cyan-700 border-cyan-200",
+    selected: "bg-green-50 text-green-800 border-green-200",
+    rejected: "bg-red-50 text-red-800 border-red-200",
   };
-  return map[status] || "bg-gray-100 text-gray-600";
+  return map[status] || "bg-gray-50 text-gray-600 border-gray-200";
 };
 
 const ViewApplicants = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [updatingId, setUpdatingId] = useState(null);
-  const [openDropdownId, setOpenDropdownId] = useState(null);
+  // Filters State
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const containerRef = useRef(null); // wraps the whole table
+
+  // Resume Preview Modal State
+  const [previewResumeUrl, setPreviewResumeUrl] = useState("");
+  const [previewStudentName, setPreviewStudentName] = useState("");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const handleOpenResume = (url, name) => {
+    setPreviewResumeUrl(url);
+    setPreviewStudentName(name);
+    setIsPreviewOpen(true);
+  };
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 10;
 
   const fetchApplications = async () => {
     try {
@@ -43,35 +57,6 @@ const ViewApplicants = () => {
 
   useEffect(() => { fetchApplications(); }, []);
 
-  // Close any open dropdown when clicking outside the table entirely,
-  // or outside the specific open dropdown's button/menu
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest("[data-status-dropdown]")) {
-        setOpenDropdownId(null);
-      }
-    };
-    if (openDropdownId !== null) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openDropdownId]);
-
-  const handleStatusChange = async (id, status) => {
-    setUpdatingId(id);
-    try {
-      await api.put(`/applications/${id}/status`, { status });
-      setApplications(applications.map(a =>
-        a.id === id ? { ...a, status } : a
-      ));
-    } catch (err) {
-      alert("Failed to update status.");
-    } finally {
-      setUpdatingId(null);
-      setOpenDropdownId(null);
-    }
-  };
-
   const filtered = applications.filter((app) => {
     const name = app.students?.profiles?.name?.toLowerCase() || "";
     const oppTitle = app.opportunities?.title?.toLowerCase() || "";
@@ -80,125 +65,168 @@ const ViewApplicants = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // Paginated application list
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paginatedApps = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-8 space-y-6 max-w-[1440px] mx-auto w-full">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">All Applications</h1>
-          <p className="text-gray-500 mt-1">Track and manage every student application</p>
+          <h1 className="text-3xl font-extrabold text-on-surface tracking-tight">Placement Pipeline</h1>
+          <p className="text-on-surface-variant text-sm mt-1">Review candidates and update status states across all active job postings.</p>
         </div>
-        <div className="flex gap-3">
+      </div>
+
+      {/* Filters Bar */}
+      <div className="bg-white p-5 rounded-2xl border border-outline-variant shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex-1 flex flex-col sm:flex-row gap-4 max-w-2xl">
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search student or opportunity..."
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search student name or job title..."
+            className="px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary flex-1"
           />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className="px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white min-w-48"
           >
             <option value="all">All Statuses</option>
             {STATUS_OPTIONS.map(s => (
-              <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+              <option key={s} value={s}>{s.replace(/_/g, " ").toUpperCase()}</option>
             ))}
           </select>
+        </div>
+        <div className="text-xs text-on-surface-variant font-bold">
+          Found {filtered.length} applications
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">{error}</div>
+        <div className="p-4 bg-error-container text-on-error-container rounded-xl text-sm border border-error-container/20">{error}</div>
       )}
 
       {loading ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-48 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-64"></div>
+            <div key={i} className="bg-white rounded-2xl border border-outline-variant p-6 h-20 flex items-center justify-between gap-6">
+              <div className="flex-1 flex flex-col gap-2">
+                <div className="h-5 skeleton-loader w-1/3" />
+                <div className="h-3 skeleton-loader w-1/4" />
+              </div>
+              <div className="h-6 skeleton-loader w-20" />
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <p className="text-4xl mb-3">📋</p>
-          <h3 className="text-lg font-semibold text-gray-700">No applications match these filters</h3>
-          <p className="text-gray-400 text-sm mt-1">Try adjusting your search or status filter</p>
+        <div className="text-center py-16 px-4 bg-white rounded-2xl border border-outline-variant shadow-sm max-w-lg mx-auto flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-primary/5 flex items-center justify-center text-primary">
+            <span className="material-symbols-outlined text-2xl">search_off</span>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-on-surface">No matching applications</h3>
+            <p className="text-on-surface-variant text-xs mt-1">Adjust search parameters or check another status type.</p>
+          </div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-visible">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Student</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Opportunity</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Applied</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Status</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">Update</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtered.map((app) => {
-                const isOpen = openDropdownId === app.id;
-                return (
-                  <tr key={app.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-gray-800">
-                        {app.students?.profiles?.name}
-                      </p>
-                      <p className="text-xs text-gray-400">{app.students?.profiles?.email}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm text-gray-700">{app.opportunities?.title}</p>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {new Date(app.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(app.status)}`}>
-                        {app.status.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="relative inline-block text-left" data-status-dropdown>
-                        <button
-                          type="button"
-                          onClick={() => setOpenDropdownId(isOpen ? null : app.id)}
-                          disabled={updatingId === app.id}
-                          className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center gap-1 bg-white"
-                        >
-                          {updatingId === app.id ? "Updating..." : "Change status"}
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {isOpen && (
-                          <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
-                            {STATUS_OPTIONS.map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                onClick={() => handleStatusChange(app.id, s)}
-                                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-                                  s === "rejected" ? "text-red-600" : "text-gray-700"
-                                } ${s === app.status ? "font-semibold bg-gray-50" : ""}`}
-                              >
-                                {s.replace(/_/g, " ")}
-                              </button>
-                            ))}
-                          </div>
+        <div className="bg-white rounded-2xl border border-outline-variant overflow-visible shadow-sm hover-lift transition-all duration-300">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container-low/50 border-b border-outline-variant">
+                  <th className="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Student</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Opportunity</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Applied Date</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Resume</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {paginatedApps.map((app) => {
+                  const resumeUrl = app.resume_url || app.students?.resume_url;
+                  return (
+                    <tr key={app.id} className="hover:bg-surface-container-lowest transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-on-surface text-sm">{app.students?.profiles?.name}</p>
+                        <p className="text-xs text-on-surface-variant mt-0.5">{app.students?.profiles?.email}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-semibold text-on-surface">{app.opportunities?.title}</p>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-on-surface-variant">
+                        {new Date(app.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                      <td className="px-6 py-4">
+                        {resumeUrl ? (
+                          <button
+                            onClick={() => handleOpenResume(resumeUrl, app.students?.profiles?.name)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/5 hover:bg-primary/10 text-primary border border-primary/10 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-sm">visibility</span>
+                            View CV
+                          </button>
+                        ) : (
+                          <span className="text-xs text-on-surface-variant/50">Not Available</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`px-2.5 py-0.5 border text-xs font-bold rounded-full ${statusColor(app.status)}`}>
+                          {app.status.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-outline-variant bg-surface-container-low/20 flex items-center justify-between">
+              <p className="text-xs text-on-surface-variant">
+                Showing {Math.min((page - 1) * PER_PAGE + 1, filtered.length)}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length} applications
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-1.5 rounded-lg border border-outline-variant disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-container transition-colors text-sm"
+                >
+                  <span className="material-symbols-outlined text-base">chevron_left</span>
+                </button>
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPage(i + 1)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                      page === i + 1 ? "bg-primary text-on-primary" : "hover:bg-surface-container border border-outline-variant text-on-surface-variant"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="p-1.5 rounded-lg border border-outline-variant disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-container transition-colors text-sm"
+                >
+                  <span className="material-symbols-outlined text-base">chevron_right</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      <ResumeModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        resumeUrl={previewResumeUrl}
+        studentName={previewStudentName}
+      />
     </div>
   );
 };

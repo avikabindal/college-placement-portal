@@ -3,7 +3,7 @@ const { supabaseAdmin } = require("../database/supabase");
 const getAllApplications = async () => {
   const { data, error } = await supabaseAdmin
     .from("applications")
-    .select("*, students(id, profiles(name, email)), opportunities(title, company_id)")
+    .select("*, students(id, resume_url, profiles(name, email)), opportunities(title, company_id, companies(profiles(name)))")
     .order("created_at", { ascending: false });
   return { data, error };
 };
@@ -35,10 +35,14 @@ const createApplication = async (fields) => {
   return { data, error };
 };
 
-const updateApplicationStatus = async (id, status, remarks) => {
+const updateApplicationStatus = async (id, status, remarks, scheduled_date = undefined, event_details = undefined) => {
+  const updates = { status, remarks };
+  if (scheduled_date !== undefined) updates.scheduled_date = scheduled_date;
+  if (event_details !== undefined) updates.event_details = event_details;
+
   const { data, error } = await supabaseAdmin
     .from("applications")
-    .update({ status, remarks })
+    .update(updates)
     .eq("id", id)
     .select()
     .single();

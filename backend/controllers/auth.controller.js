@@ -2,52 +2,58 @@ const { supabaseAdmin, supabaseAuth } = require("../database/supabase");
 const { getProfileById } = require("../models/profile.model");
 
 const register = async (req, res) => {
-  console.log("Register hit, body:", req.body);
-  const { name, email, password, role } = req.body;
+  try {
+    console.log("Register hit, body:", req.body);
+    const { name, email, password, role } = req.body;
 
-  if (!name || !email || !password || !role) {
-    return res.status(400).json({ error: "name, email, password, and role are required" });
-  }
-  if (!["tpo", "student", "company"].includes(role)) {
-    return res.status(400).json({ error: "role must be tpo, student, or company" });
-  }
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ error: "name, email, password, and role are required" });
+    }
+    if (!["student", "tpo"].includes(role)) {
+      return res.status(400).json({ error: "Self-registration is only allowed for students and TPOs." });
+    }
+    if (!email.toLowerCase().endsWith("@jietjodhpur.ac.in")) {
+      return res.status(400).json({ error: "Only accounts with official @jietjodhpur.ac.in email addresses are allowed to register." });
+    }
+    if (role === "tpo") {
+      const tpoKey = req.body.tpo_key || req.headers["x-tpo-key"];
+      const expectedKey = process.env.TPO_REGISTRATION_KEY;
+      if (!expectedKey || tpoKey !== expectedKey) {
+        return res.status(403).json({ error: "Unauthorized: TPO registration key is invalid or missing." });
+      }
+    }
 
-  console.log("Calling Supabase Admin REST API directly");
-  const supaRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
-    method: "POST",
-    headers: {
-      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+    console.log("Calling Supabase signUp Client API");
+    const { data, error: signUpError } = await supabaseAuth.auth.signUp({
       email,
       password,
-      email_confirm: true,
-      user_metadata: { name, role },
-    }),
-  });
+      options: {
+        data: { name, role },
+      },
+    });
 
-  const result = await supaRes.json();
-  console.log("Result:", { status: supaRes.status, result });
+    if (signUpError) {
+      console.log("SignUp API returned error:", signUpError);
+      return res.status(400).json({ error: signUpError.message || "Registration failed" });
+    }
 
-  if (!supaRes.ok) {
-    return res.status(400).json({ error: result.msg || result.error_code || "Registration failed" });
+    console.log("SignUp successful, inserting profile for user ID:", data.user?.id);
+
+    if (role === "student") {
+      const { error: insertError } = await supabaseAdmin.from("students").insert({ id: data.user.id });
+      if (insertError) {
+        console.log("Error inserting student record:", insertError);
+      }
+    }
+
+    res.status(201).json({
+      message: "User registered successfully",
+      user: { id: data.user.id, email, name, role },
+    });
+  } catch (error) {
+    console.error("Critical error in register controller:", error);
+    res.status(500).json({ error: "An internal server error occurred during registration." });
   }
-
-  const data = { user: result };
-
-  if (role === "student") {
-    await supabaseAdmin.from("students").insert({ id: data.user.id });
-  }
-  if (role === "company") {
-    await supabaseAdmin.from("companies").insert({ id: data.user.id });
-  }
-
-  res.status(201).json({
-    message: "User registered successfully",
-    user: { id: data.user.id, email, name, role },
-  });
 };
 
 const login = async (req, res) => {
@@ -61,6 +67,19 @@ const login = async (req, res) => {
   if (error) return res.status(401).json({ error: "Invalid email or password" });
 
   const { data: profile } = await getProfileById(data.user.id);
+
+  if (profile?.role === "company") {
+    const { data: company } = await supabaseAdmin
+      .from("companies")
+      .select("is_active")
+      .eq("id", data.user.id)
+      .single();
+
+    if (company && company.is_active === false) {
+      await supabaseAuth.auth.signOut();
+      return res.status(403).json({ error: "Your company account is inactive. Please contact the TPO." });
+    }
+  }
 
   res.json({
     message: "Login successful",
@@ -165,4 +184,46 @@ const changePassword = async (req, res) => {
   res.json({ message: "Password updated successfully" });
 };
 
-module.exports = { register, login, logout, getMe, updateProfile, changePassword };
+// POST /users/forgot-password
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  // Request Supabase Auth recovery link
+  const { error } = await supabaseAuth.auth.resetPasswordForEmail(email, {
+    redirectTo: `${req.headers.origin || "http://localhost:5173"}/reset-password`,
+  });
+
+  if (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  res.json({ message: "Password reset link sent to your email." });
+};
+
+// POST /users/reset-password
+const resetPassword = async (req, res) => {
+  const { newPassword } = req.body;
+  const userId = req.user.id; // set by authMiddleware from Bearer token
+
+  if (!newPassword) {
+    return res.status(400).json({ error: "newPassword is required" });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    password: newPassword,
+  });
+
+  if (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  res.json({ message: "Password reset successfully. You can now login with your new password." });
+};
+
+module.exports = { register, login, logout, getMe, updateProfile, changePassword, forgotPassword, resetPassword };

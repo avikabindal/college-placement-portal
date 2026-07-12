@@ -12,6 +12,7 @@ const listCompanies = async (req, res) => {
         location,
         contact_email,
         website,
+        is_active,
         created_at,
         profiles (
           id,
@@ -45,6 +46,7 @@ const createCompany = async (req, res) => {
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
+      email_confirm: true,
       user_metadata: { name, role: "company" },
     });
 
@@ -53,9 +55,9 @@ const createCompany = async (req, res) => {
     }
 
     // Create profile record
-    const { data: profileData, error: profileError } = await supabaseAuth
+    const { data: profileData, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .insert({
+      .upsert({
         id: authUser.user.id,
         name,
         email,
@@ -70,16 +72,17 @@ const createCompany = async (req, res) => {
       return res.status(500).json({ error: profileError.message });
     }
 
-    // Create company record
-    const { data: companyData, error: companyError } = await supabaseAuth
+    // Create company record (using 'id' as key)
+    const { data: companyData, error: companyError } = await supabaseAdmin
       .from("companies")
       .insert({
-        user_id: authUser.user.id,
+        id: authUser.user.id,
         description: description || "",
         industry: industry || "",
         location: location || "",
         contact_email: contact_email || "",
         website: website || "",
+        is_active: true,
       })
       .select(`
         id,
@@ -88,6 +91,7 @@ const createCompany = async (req, res) => {
         location,
         contact_email,
         website,
+        is_active,
         created_at,
         profiles (
           id,
@@ -100,7 +104,7 @@ const createCompany = async (req, res) => {
     if (companyError) {
       // Cleanup: delete auth user and profile
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
-      await supabaseAuth.from("profiles").delete().eq("id", authUser.user.id);
+      await supabaseAdmin.from("profiles").delete().eq("id", authUser.user.id);
       return res.status(500).json({ error: companyError.message });
     }
 
@@ -129,6 +133,7 @@ const getCompany = async (req, res) => {
         location,
         contact_email,
         website,
+        is_active,
         created_at,
         profiles (
           id,
@@ -136,7 +141,7 @@ const getCompany = async (req, res) => {
           email
         )
       `)
-      .eq("user_id", id)
+      .eq("id", id)
       .single();
 
     if (error) {
@@ -159,7 +164,7 @@ const updateCompanyProfile = async (req, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    const { name, email, description, website, industry, location, contact_email } = req.body;
+    const { name, email, description, website, industry, location, contact_email, is_active } = req.body;
 
     // Update name/email via Supabase Auth Admin API
     if (name !== undefined || email !== undefined) {
@@ -192,7 +197,7 @@ const updateCompanyProfile = async (req, res) => {
           if (name !== undefined) profileUpdates.name = name;
           if (email !== undefined) profileUpdates.email = email;
 
-          await supabaseAuth.from("profiles").update(profileUpdates).eq("id", id);
+          await supabaseAdmin.from("profiles").update(profileUpdates).eq("id", id);
         }
       }
     }
@@ -204,14 +209,15 @@ const updateCompanyProfile = async (req, res) => {
     if (industry !== undefined) updates.industry = industry;
     if (location !== undefined) updates.location = location;
     if (contact_email !== undefined) updates.contact_email = contact_email;
+    if (is_active !== undefined) updates.is_active = is_active;
 
     let data = null;
 
     if (Object.keys(updates).length > 0) {
-      const { data: updatedData, error: updateError } = await supabaseAuth
+      const { data: updatedData, error: updateError } = await supabaseAdmin
         .from("companies")
         .update(updates)
-        .eq("user_id", id)
+        .eq("id", id)
         .select(`
           id,
           description,
@@ -219,6 +225,7 @@ const updateCompanyProfile = async (req, res) => {
           location,
           contact_email,
           website,
+          is_active,
           created_at,
           profiles (
             id,
@@ -235,7 +242,7 @@ const updateCompanyProfile = async (req, res) => {
       data = updatedData;
     } else {
       // If no updates, just fetch current data
-      const { data: fetchedData, error: fetchError } = await supabaseAuth
+      const { data: fetchedData, error: fetchError } = await supabaseAdmin
         .from("companies")
         .select(`
           id,
@@ -244,6 +251,7 @@ const updateCompanyProfile = async (req, res) => {
           location,
           contact_email,
           website,
+          is_active,
           created_at,
           profiles (
             id,
@@ -251,7 +259,7 @@ const updateCompanyProfile = async (req, res) => {
             email
           )
         `)
-        .eq("user_id", id)
+        .eq("id", id)
         .single();
 
       if (fetchError) {
@@ -277,15 +285,32 @@ const deleteCompany = async (req, res) => {
       return res.status(403).json({ error: "Only TPO can delete companies" });
     }
 
+    // Check if company has any opportunities
+    const { data: opps, error: oppCheckError } = await supabaseAdmin
+      .from("opportunities")
+      .select("id")
+      .eq("company_id", id)
+      .limit(1);
+
+    if (oppCheckError) {
+      return res.status(500).json({ error: oppCheckError.message });
+    }
+
+    if (opps && opps.length > 0) {
+      return res.status(400).json({
+        error: "Cannot delete this company because they have active or past job opportunities/placements. You should deactivate them instead."
+      });
+    }
+
     // Delete company record
-    const { error: companyError } = await supabaseAuth.from("companies").delete().eq("user_id", id);
+    const { error: companyError } = await supabaseAdmin.from("companies").delete().eq("id", id);
 
     if (companyError) {
       return res.status(500).json({ error: companyError.message });
     }
 
     // Delete profile record
-    const { error: profileError } = await supabaseAuth.from("profiles").delete().eq("id", id);
+    const { error: profileError } = await supabaseAdmin.from("profiles").delete().eq("id", id);
 
     if (profileError) {
       return res.status(500).json({ error: profileError.message });

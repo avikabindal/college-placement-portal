@@ -35,6 +35,8 @@ export default function StudentProfile() {
     phone: "",
     skills: [],
     resume_url: "",
+    linkedin_url: "",
+    registration_year: "",
   });
   const [originalForm, setOriginalForm] = useState(null);
 
@@ -64,6 +66,8 @@ export default function StudentProfile() {
           phone: s?.phone || "",
           skills: skillsArr,
           resume_url: s?.resume_url || "",
+          linkedin_url: s?.linkedin_url || "",
+          registration_year: s?.registration_year || "",
         };
         setForm(formData);
         setOriginalForm(formData);
@@ -106,7 +110,7 @@ export default function StudentProfile() {
     }
   };
 
-  const completionFields = ["name", "branch", "graduation_year", "cgpa", "phone", "resume_url"];
+  const completionFields = ["name", "branch", "graduation_year", "cgpa", "phone", "resume_url", "linkedin_url", "registration_year"];
   const completionScore = Math.round(
     ((completionFields.filter((f) => form[f]).length + (form.skills.length > 0 ? 1 : 0)) /
       (completionFields.length + 1)) * 100
@@ -132,6 +136,8 @@ export default function StudentProfile() {
         phone: form.phone,
         skills: form.skills.join(", "),
         resume_url: form.resume_url,
+        linkedin_url: form.linkedin_url,
+        registration_year: form.registration_year ? parseInt(form.registration_year) : null,
       };
 
       if (student) {
@@ -289,12 +295,20 @@ export default function StudentProfile() {
               {/* Academic Info */}
               <div>
                 <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">Academic Details</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Registration Year</label>
+                    <input
+                      type="number" name="registration_year" value={form.registration_year} onChange={handleChange}
+                      placeholder="e.g. 2022"
+                      className="px-4 py-2.5 rounded-lg border border-outline-variant focus:border-secondary bg-surface-bright text-sm transition-colors"
+                    />
+                  </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Graduation Year</label>
                     <input
                       type="number" name="graduation_year" value={form.graduation_year} onChange={handleChange}
-                      placeholder="e.g. 2025"
+                      placeholder="e.g. 2026"
                       className="px-4 py-2.5 rounded-lg border border-outline-variant focus:border-secondary bg-surface-bright text-sm transition-colors"
                     />
                   </div>
@@ -311,8 +325,8 @@ export default function StudentProfile() {
 
               {/* Contact Info */}
               <div>
-                <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">Contact Information</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">Contact & Social Profiles</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Phone Number</label>
                     <div className="relative">
@@ -329,6 +343,14 @@ export default function StudentProfile() {
                     <input
                       type="email" value={profile?.email || ""} disabled
                       className="px-4 py-2.5 rounded-lg border border-outline-variant bg-surface-container text-sm text-on-surface-variant cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">LinkedIn Profile Link</label>
+                    <input
+                      type="url" name="linkedin_url" value={form.linkedin_url} onChange={handleChange}
+                      placeholder="https://linkedin.com/in/username"
+                      className="px-4 py-2.5 rounded-lg border border-outline-variant focus:border-secondary bg-surface-bright text-sm transition-colors"
                     />
                   </div>
                 </div>

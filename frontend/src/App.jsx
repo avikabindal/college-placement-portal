@@ -1,19 +1,23 @@
 import StudentProfile from "./pages/student/StudentProfile";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import TPODashboard from "./pages/tpo/TPODashboard";
 import ManageCompanies from "./pages/tpo/ManageCompanies";
 import ManageOpportunities from "./pages/tpo/ManageOpportunities";
 import ViewApplicants from "./pages/tpo/ViewApplicants";
+import TPOProfile from "./pages/tpo/TPOProfile";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import BrowseOpportunities from "./pages/student/BrowseOpportunities";
 import OpportunityDetail from "./pages/student/OpportunityDetail";
 import MyApplications from "./pages/student/MyApplications";
 import CompanyDashboard from "./pages/company/CompanyDashboard";
 import CompanyApplicants from "./pages/company/CompanyApplicants";
+import ManageCompanyOpportunities from "./pages/company/ManageCompanyOpportunities";
 import Settings from "./pages/Settings";
+import ResetPassword from "./pages/ResetPassword";
 import MainLayout from "./components/Layout";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -37,12 +41,14 @@ const PublicRoute = ({ children }) => {
 
 const App = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+          <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
 
           {/* Protected routes wrapped in MainLayout */}
           <Route element={<MainLayout />}>
@@ -51,6 +57,7 @@ const App = () => {
             <Route path="/tpo/companies" element={<ProtectedRoute allowedRoles={["tpo"]}><ManageCompanies /></ProtectedRoute>} />
             <Route path="/tpo/opportunities" element={<ProtectedRoute allowedRoles={["tpo"]}><ManageOpportunities /></ProtectedRoute>} />
             <Route path="/tpo/applications" element={<ProtectedRoute allowedRoles={["tpo"]}><ViewApplicants /></ProtectedRoute>} />
+            <Route path="/tpo/profile" element={<ProtectedRoute allowedRoles={["tpo"]}><TPOProfile /></ProtectedRoute>} />
 
             {/* Student routes */}
             <Route path="/student/dashboard" element={<ProtectedRoute allowedRoles={["student"]}><StudentDashboard /></ProtectedRoute>} />
@@ -61,6 +68,7 @@ const App = () => {
 
             {/* Company routes */}
             <Route path="/company/dashboard" element={<ProtectedRoute allowedRoles={["company"]}><CompanyDashboard /></ProtectedRoute>} />
+            <Route path="/company/opportunities" element={<ProtectedRoute allowedRoles={["company"]}><ManageCompanyOpportunities /></ProtectedRoute>} />
             <Route path="/company/applicants" element={<ProtectedRoute allowedRoles={["company"]}><CompanyApplicants /></ProtectedRoute>} />
 
             {/* Shared */}
@@ -72,6 +80,7 @@ const App = () => {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+  </ThemeProvider>
   );
 };
 

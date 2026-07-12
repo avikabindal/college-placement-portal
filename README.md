@@ -1,6 +1,6 @@
 # CareerConnect: College Placement Portal
 
-> 🌐 **Live Demo:** [college-placement-portal-ib8qj24kh-career-connect1.vercel.app](https://college-placement-portal-ib8qj24kh-career-connect1.vercel.app)
+> 🌐 **Live Demo:** [college-placement-portal-hvasai9j5-career-connect1.vercel.app](https://college-placement-portal-hvasai9j5-career-connect1.vercel.app)
 
 
 CareerConnect is a modern, full-stack placement and internship tracking web application. It simplifies communication between TPO (Training & Placement Officer) Administrators, Partner Company Recruiters, and Students.

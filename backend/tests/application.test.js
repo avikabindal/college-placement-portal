@@ -154,6 +154,42 @@ describe("Application Controller Unit Tests", () => {
       expect(res.status).toBe(201);
     });
 
+    it("should return 400 if no resume is provided and student profile lacks a resume link", async () => {
+      supabaseAdmin.auth.getUser.mockResolvedValue({
+        data: { user: { id: "mock-student-id" } },
+        error: null,
+      });
+
+      // 1. Auth middleware profile lookup
+      supabaseAdmin.from().select().eq().single.mockResolvedValueOnce({
+        data: { role: "student", name: "Student User", email: "student@jietjodhpur.ac.in" },
+        error: null,
+      });
+
+      // 2. Check opportunity status (open)
+      supabaseAdmin.from().select().eq().single.mockResolvedValueOnce({
+        data: { status: "open", companies: { is_active: true } },
+        error: null,
+      });
+
+      // 3. Fetch student's current resume (null)
+      supabaseAdmin.from().select().eq().single.mockResolvedValueOnce({
+        data: { resume_url: null },
+        error: null,
+      });
+
+      const res = await request(app)
+        .post("/applications")
+        .set("Authorization", "Bearer student-token")
+        .send({
+          opportunity_id: "open-opp-id",
+          cover_note: "No resume provided",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Resume URL is required");
+    });
+
     it("should return 400 if opportunity is closed", async () => {
       supabaseAdmin.auth.getUser.mockResolvedValue({
         data: { user: { id: "mock-student-id" } },

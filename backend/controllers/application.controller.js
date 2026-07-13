@@ -35,6 +35,10 @@ const apply = async (req, res) => {
 
     const finalResumeUrl = resume_url || student?.resume_url || null;
 
+    if (!finalResumeUrl) {
+      return res.status(400).json({ error: "Resume URL is required to apply. Please submit a resume link." });
+    }
+
     const { data, error } = await createApplication({
       opportunity_id, student_id: req.user.id, cover_note, resume_url: finalResumeUrl,
     });

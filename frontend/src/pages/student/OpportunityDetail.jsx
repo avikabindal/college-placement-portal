@@ -41,7 +41,7 @@ const OpportunityDetail = () => {
   }, [id, user?.id]);
 
   const handleApply = async () => {
-    if (!resumeUrl) {
+    if (!resumeUrl || !resumeUrl.trim()) {
       alert("Resume Link is required to submit your application.");
       return;
     }

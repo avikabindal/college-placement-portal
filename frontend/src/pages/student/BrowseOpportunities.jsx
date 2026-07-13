@@ -40,6 +40,7 @@ const BrowseOpportunities = () => {
   const [showNoteFor, setShowNoteFor] = useState(null);
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("all");
+  const [profileResumeUrl, setProfileResumeUrl] = useState("");
 
   useEffect(() => {
     api.get("/opportunities")
@@ -58,6 +59,14 @@ const BrowseOpportunities = () => {
           setApplied(opportunityIds);
         })
         .catch((err) => console.error("Failed to load applied opportunities:", err));
+
+      api.get("/students/profile")
+        .then((res) => {
+          if (res.data?.resume_url) {
+            setProfileResumeUrl(res.data.resume_url);
+          }
+        })
+        .catch((err) => console.log("Profile prefill fetch error:", err));
     }
   }, [user?.id]);
 
@@ -81,6 +90,11 @@ const BrowseOpportunities = () => {
   }, [search, locationFilter, opportunities]);
 
   const handleApply = async (opportunityId) => {
+    if (!profileResumeUrl) {
+      alert("You must submit/link a resume in your profile before applying to any company.");
+      navigate("/student/profile");
+      return;
+    }
     setApplying(opportunityId);
     try {
       await api.post("/applications", {
@@ -361,7 +375,14 @@ const BrowseOpportunities = () => {
                       </span>
                     ) : (
                       <button
-                        onClick={() => setShowNoteFor(opp.id)}
+                        onClick={() => {
+                          if (!profileResumeUrl) {
+                            alert("You must submit/link a resume in your profile before applying to any company.");
+                            navigate("/student/profile");
+                          } else {
+                            setShowNoteFor(opp.id);
+                          }
+                        }}
                         className="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-bold text-sm active:scale-95 transition-all hover:opacity-90"
                       >
                         Apply Now

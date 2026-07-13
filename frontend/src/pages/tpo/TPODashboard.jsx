@@ -425,7 +425,7 @@ export default function TPODashboard() {
           <div className="space-y-3.5">
             {[
               { to: "/tpo/opportunities", label: "Manage Drives", desc: "Post new placement templates", icon: "work", color: "text-primary bg-primary/10" },
-              { to: "/tpo/applications", label: "Inspect Pipeline", desc: "View CVs & candidate details", icon: "description", color: "text-tertiary bg-tertiary-fixed-dim" },
+              { to: "/tpo/applications", label: "Inspect Pipeline", desc: "View resumes & candidate details", icon: "description", color: "text-tertiary bg-tertiary-fixed-dim" },
               { to: "/tpo/companies", label: "Manage Partner Recruiters", desc: "Activate or deactivate accounts", icon: "domain", color: "text-secondary bg-secondary-container" },
             ].map((link, idx) => (
               <Link

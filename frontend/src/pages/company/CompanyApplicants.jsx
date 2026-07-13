@@ -417,7 +417,7 @@ const CompanyApplicants = () => {
                                 className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/5 hover:bg-primary/10 text-primary border border-primary/10 rounded-lg text-xs font-bold transition-all cursor-pointer"
                               >
                                 <span className="material-symbols-outlined text-sm">visibility</span>
-                                View CV
+                                View Resume
                               </button>
                             ) : (
                               <span className="text-xs text-on-surface-variant/50">Not Available</span>

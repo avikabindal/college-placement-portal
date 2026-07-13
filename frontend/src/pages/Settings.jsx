@@ -107,6 +107,18 @@ export default function Settings() {
 
   useEffect(() => {
     if (!user?.id) return;
+    const fetchAvatar = async () => {
+      try {
+        const res = await api.get("/users/me");
+        if (res.data?.avatar_url) {
+          setAvatarUrl(res.data.avatar_url);
+        }
+      } catch (err) {
+        console.error("Failed to fetch avatar from DB:", err);
+      }
+    };
+    fetchAvatar();
+    
     const saved = localStorage.getItem(`avatar_${user.id}`);
     if (saved) setAvatarUrl(saved);
   }, [user?.id]);
@@ -117,7 +129,7 @@ export default function Settings() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement("canvas");
         const SIZE = 200;
         canvas.width = SIZE;
@@ -129,6 +141,17 @@ export default function Settings() {
         ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
         setAvatarUrl(dataUrl);
+
+        try {
+          await api.put("/users/profile", {
+            name: name || user?.name,
+            email: email || user?.email,
+            avatar_url: dataUrl
+          });
+        } catch (err) {
+          console.error("Failed to save avatar to DB:", err);
+        }
+
         if (user?.id) {
           localStorage.setItem(`avatar_${user.id}`, dataUrl);
           window.dispatchEvent(new Event("avatarChanged"));
@@ -138,10 +161,19 @@ export default function Settings() {
     };
     reader.readAsDataURL(file);
     e.target.value = "";
-  }, [user?.id]);
+  }, [user?.id, name, email, user?.name, user?.email]);
 
-  const handleRemoveAvatar = useCallback(() => {
+  const handleRemoveAvatar = useCallback(async () => {
     setAvatarUrl(null);
+    try {
+      await api.put("/users/profile", {
+        name: name || user?.name,
+        email: email || user?.email,
+        avatar_url: null
+      });
+    } catch (err) {
+      console.error("Failed to remove avatar from DB:", err);
+    }
     if (user?.id) {
       localStorage.removeItem(`avatar_${user.id}`);
       window.dispatchEvent(new Event("avatarChanged"));

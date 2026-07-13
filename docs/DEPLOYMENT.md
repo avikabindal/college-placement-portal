@@ -74,6 +74,19 @@ CREATE TABLE notifications (
   is_read BOOLEAN DEFAULT FALSE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+-- 7. Add Avatar Column to Profiles (for profile picture uploads)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- 8. TPO Audit Logs Table (Stores audit history of changes made to TPO profiles)
+CREATE TABLE tpo_audit_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  tpo_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  changed_by UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  action TEXT NOT NULL,
+  details TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
 ```
 
 ---

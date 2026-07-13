@@ -1,5 +1,6 @@
 const { supabaseAdmin, supabaseAuth } = require("../database/supabase");
 const { getProfileById } = require("../models/profile.model");
+const { createAuditLog, getAuditLogs } = require("../models/audit.model");
 
 const register = async (req, res) => {
   try {
@@ -107,22 +108,50 @@ const getMe = async (req, res) => {
 // PUT /users/profile
 const updateProfile = async (req, res) => {
   const userId = req.user.id;
-  const { name, email } = req.body;
+  const userRole = req.user.role;
+  const { name, email, avatar_url } = req.body;
 
   if (!name || !email) {
     return res.status(400).json({ error: "name and email are required" });
   }
 
-  // Update profile table (name)
+  // Get old profile to compare for audit logs
+  const { data: oldProfile } = await getProfileById(userId);
+
+  const updateFields = { name };
+  if (avatar_url !== undefined) {
+    updateFields.avatar_url = avatar_url;
+  }
+
+  // Update profile table
   const { data: updatedProfile, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .update({ name })
+    .update(updateFields)
     .eq("id", userId)
     .select()
     .single();
 
   if (profileError) {
     return res.status(400).json({ error: profileError.message });
+  }
+
+  // Log audit if user is TPO
+  if (userRole === "tpo" && oldProfile) {
+    if (oldProfile.name !== name) {
+      await createAuditLog(
+        userId,
+        userId,
+        "update_name",
+        `Updated profile name from "${oldProfile.name}" to "${name}"`
+      );
+    }
+    if (avatar_url !== undefined && oldProfile.avatar_url !== avatar_url) {
+      if (avatar_url === null) {
+        await createAuditLog(userId, userId, "remove_avatar", "Removed profile photo");
+      } else {
+        await createAuditLog(userId, userId, "update_avatar", "Updated profile photo");
+      }
+    }
   }
 
   // If email changed, update it in Supabase Auth too (keeps login email in sync)
@@ -140,7 +169,7 @@ const updateProfile = async (req, res) => {
 
   res.json({
     message: "Profile updated successfully",
-    user: { id: userId, name: updatedProfile.name, email },
+    user: { id: userId, name: updatedProfile.name, email, avatar_url: updatedProfile.avatar_url },
   });
 };
 
@@ -179,6 +208,11 @@ const changePassword = async (req, res) => {
 
   if (updateError) {
     return res.status(400).json({ error: updateError.message });
+  }
+
+  // Log audit if user is TPO
+  if (req.user.role === "tpo") {
+    await createAuditLog(userId, userId, "change_password", "Changed account password");
   }
 
   res.json({ message: "Password updated successfully" });
@@ -226,4 +260,21 @@ const resetPassword = async (req, res) => {
   res.json({ message: "Password reset successfully. You can now login with your new password." });
 };
 
-module.exports = { register, login, logout, getMe, updateProfile, changePassword, forgotPassword, resetPassword };
+// GET /users/tpo-logs
+const getTPOAuditLogs = async (req, res) => {
+  const userId = req.user.id;
+  const userRole = req.user.role;
+
+  if (userRole !== "tpo") {
+    return res.status(403).json({ error: "Access denied. Only TPOs can view TPO audit logs." });
+  }
+
+  const { data, error } = await getAuditLogs(userId);
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data || []);
+};
+
+module.exports = { register, login, logout, getMe, updateProfile, changePassword, forgotPassword, resetPassword, getTPOAuditLogs };

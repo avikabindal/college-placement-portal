@@ -72,8 +72,11 @@ export default function StudentProfile() {
           linkedin_url: s?.linkedin_url || "",
           registration_year: s?.registration_year || "",
         };
-        setForm(formData);
+         setForm(formData);
         setOriginalForm(formData);
+        if (me?.avatar_url) {
+          setAvatarUrl(me.avatar_url);
+        }
       } catch (err) {
         setError("Failed to load profile.");
       } finally {
@@ -83,7 +86,7 @@ export default function StudentProfile() {
     fetchProfile();
   }, []);
 
-  // Load saved avatar from localStorage once we know the user id
+  // Load saved avatar from localStorage once we know the user id as local cache/fallback
   useEffect(() => {
     if (!profile?.id) return;
     const saved = localStorage.getItem(`avatar_${profile.id}`);
@@ -96,7 +99,7 @@ export default function StudentProfile() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement("canvas");
         const SIZE = 200;
         canvas.width = SIZE;
@@ -109,6 +112,17 @@ export default function StudentProfile() {
         ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
         setAvatarUrl(dataUrl);
+
+        try {
+          await api.put("/users/profile", {
+            name: form.name || profile?.name,
+            email: profile?.email,
+            avatar_url: dataUrl
+          });
+        } catch (err) {
+          console.error("Failed to save avatar to DB:", err);
+        }
+
         if (profile?.id) {
           localStorage.setItem(`avatar_${profile.id}`, dataUrl);
           window.dispatchEvent(new Event("avatarChanged"));
@@ -118,15 +132,24 @@ export default function StudentProfile() {
     };
     reader.readAsDataURL(file);
     e.target.value = "";
-  }, [profile?.id]);
+  }, [profile?.id, form.name, profile?.name, profile?.email]);
 
-  const handleRemoveAvatar = useCallback(() => {
+  const handleRemoveAvatar = useCallback(async () => {
     setAvatarUrl(null);
+    try {
+      await api.put("/users/profile", {
+        name: form.name || profile?.name,
+        email: profile?.email,
+        avatar_url: null
+      });
+    } catch (err) {
+      console.error("Failed to remove avatar from DB:", err);
+    }
     if (profile?.id) {
       localStorage.removeItem(`avatar_${profile.id}`);
       window.dispatchEvent(new Event("avatarChanged"));
     }
-  }, [profile?.id]);
+  }, [profile?.id, form.name, profile?.name, profile?.email]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });

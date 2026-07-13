@@ -1,11 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 
 const TPOProfile = () => {
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState(tabParam || "profile");
   const avatarInputRef = useRef(null);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [avatarHover, setAvatarHover] = useState(false);
@@ -28,11 +31,19 @@ const TPOProfile = () => {
     current: false, new: false, confirm: false,
   });
 
+  // Audit logs state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [logsError, setLogsError] = useState("");
+
   const fetchProfile = async () => {
     try {
       const res = await api.get("/users/me");
       setProfile(res.data);
       setProfileForm({ name: res.data.name || "", email: res.data.email || "" });
+      if (res.data?.avatar_url) {
+        setAvatarUrl(res.data.avatar_url);
+      }
     } catch (err) {
       setError("Failed to load profile.");
     } finally {
@@ -42,12 +53,31 @@ const TPOProfile = () => {
 
   useEffect(() => { fetchProfile(); }, []);
 
-  // Load saved avatar from localStorage once we know the user id
+  // Load saved avatar from localStorage once we know the user id as local cache/fallback
   useEffect(() => {
     if (!profile?.id) return;
     const saved = localStorage.getItem(`avatar_${profile.id}`);
     if (saved) setAvatarUrl(saved);
   }, [profile?.id]);
+
+  const fetchLogs = async () => {
+    setLoadingLogs(true);
+    setLogsError("");
+    try {
+      const res = await api.get("/users/tpo-logs");
+      setAuditLogs(res.data || []);
+    } catch (err) {
+      setLogsError("Failed to load audit logs.");
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "audit") {
+      fetchLogs();
+    }
+  }, [activeTab]);
 
   const handleAvatarChange = useCallback((e) => {
     const file = e.target.files?.[0];
@@ -55,7 +85,7 @@ const TPOProfile = () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement("canvas");
         const SIZE = 200;
         canvas.width = SIZE;
@@ -67,6 +97,17 @@ const TPOProfile = () => {
         ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
         setAvatarUrl(dataUrl);
+
+        try {
+          await api.put("/users/profile", {
+            name: profileForm.name || profile?.name,
+            email: profile?.email,
+            avatar_url: dataUrl
+          });
+        } catch (err) {
+          console.error("Failed to save avatar to DB:", err);
+        }
+
         if (profile?.id) {
           localStorage.setItem(`avatar_${profile.id}`, dataUrl);
           window.dispatchEvent(new Event("avatarChanged"));
@@ -76,15 +117,24 @@ const TPOProfile = () => {
     };
     reader.readAsDataURL(file);
     e.target.value = "";
-  }, [profile?.id]);
+  }, [profile?.id, profileForm.name, profile?.name, profile?.email]);
 
-  const handleRemoveAvatar = useCallback(() => {
+  const handleRemoveAvatar = useCallback(async () => {
     setAvatarUrl(null);
+    try {
+      await api.put("/users/profile", {
+        name: profileForm.name || profile?.name,
+        email: profile?.email,
+        avatar_url: null
+      });
+    } catch (err) {
+      console.error("Failed to remove avatar from DB:", err);
+    }
     if (profile?.id) {
       localStorage.removeItem(`avatar_${profile.id}`);
       window.dispatchEvent(new Event("avatarChanged"));
     }
-  }, [profile?.id]);
+  }, [profile?.id, profileForm.name, profile?.name, profile?.email]);
 
   const handleProfileChange = (e) => {
     setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
@@ -100,10 +150,11 @@ const TPOProfile = () => {
     }
     setProfileSubmitting(true);
     try {
-      // updateProfile requires both name and email
+      // updateProfile requires both name, email, and optionally avatar_url
       const res = await api.put("/users/profile", {
         name: profileForm.name.trim(),
         email: profile.email, // send current email unchanged
+        avatar_url: avatarUrl // send current avatar URL
       });
       const updatedName = res.data?.name || profileForm.name.trim();
       setProfile((prev) => ({ ...prev, name: updatedName }));
@@ -289,6 +340,7 @@ const TPOProfile = () => {
         {[
           { id: "profile", label: "Profile Info", icon: "person" },
           { id: "security", label: "Security", icon: "lock" },
+          { id: "audit", label: "Audit Logs", icon: "history" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -520,6 +572,89 @@ const TPOProfile = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Tab */}
+      {activeTab === "audit" && (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">TPO Profile Audit Logs</h3>
+              <p className="text-xs text-gray-400 mt-0.5">History of updates and credentials modifications</p>
+            </div>
+            <button
+              onClick={fetchLogs}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-indigo-600 cursor-pointer flex items-center justify-center"
+              title="Refresh logs"
+            >
+              <span className="material-symbols-outlined text-xl">refresh</span>
+            </button>
+          </div>
+
+          <div className="p-6">
+            {loadingLogs ? (
+              <div className="space-y-4 animate-pulse">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="w-9 h-9 rounded-full bg-gray-200 shrink-0" />
+                    <div className="flex-1 space-y-2 mt-1">
+                      <div className="h-4 bg-gray-200 rounded w-1/3" />
+                      <div className="h-3 bg-gray-200 rounded w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : logsError ? (
+              <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">error</span>
+                {logsError}
+              </div>
+            ) : auditLogs.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <span className="material-symbols-outlined text-4xl opacity-40 block mb-2">history</span>
+                No audit logs recorded yet.
+              </div>
+            ) : (
+              <div className="relative border-l border-gray-200 ml-4 pl-6 space-y-6">
+                {auditLogs.map((log) => {
+                  const iconMap = {
+                    update_name: "badge",
+                    change_password: "key",
+                    update_avatar: "photo_camera",
+                    remove_avatar: "no_photography",
+                  };
+                  const colorMap = {
+                    update_name: "text-indigo-500 bg-indigo-50",
+                    change_password: "text-rose-500 bg-rose-50",
+                    update_avatar: "text-emerald-500 bg-emerald-50",
+                    remove_avatar: "text-amber-500 bg-amber-50",
+                  };
+                  return (
+                    <div key={log.id} className="relative">
+                      {/* Timeline bullet */}
+                      <span className={`absolute -left-[38px] top-0.5 w-7 h-7 rounded-full flex items-center justify-center border-4 border-white shadow-sm font-semibold text-xs ${colorMap[log.action] || "text-gray-500 bg-gray-50"}`}>
+                        <span className="material-symbols-outlined text-[14px]">
+                          {iconMap[log.action] || "edit"}
+                        </span>
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">{log.details}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-400">
+                          <span>Changed by:</span>
+                          <span className="font-medium text-gray-600">{log.changed_by_profile?.name || "Unknown"} ({log.changed_by_profile?.email || "N/A"})</span>
+                          <span className="text-gray-200">•</span>
+                          <span>{new Date(log.created_at).toLocaleString("en-IN", {
+                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit"
+                          })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

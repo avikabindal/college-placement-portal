@@ -427,6 +427,7 @@ export default function TPODashboard() {
               { to: "/tpo/opportunities", label: "Manage Drives", desc: "Post new placement templates", icon: "work", color: "text-primary bg-primary/10" },
               { to: "/tpo/applications", label: "Inspect Pipeline", desc: "View resumes & candidate details", icon: "description", color: "text-tertiary bg-tertiary-fixed-dim" },
               { to: "/tpo/companies", label: "Manage Partner Recruiters", desc: "Activate or deactivate accounts", icon: "domain", color: "text-secondary bg-secondary-container" },
+              { to: "/tpo/profile?tab=audit", label: "Profile Audit Logs", desc: "Track changes made to TPO credentials", icon: "history", color: "text-red-500 bg-red-50" },
             ].map((link, idx) => (
               <Link
                 key={idx}

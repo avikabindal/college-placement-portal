@@ -9,7 +9,26 @@ export default function Header({ onMenuClick }) {
   const { theme, toggleTheme } = useTheme();
   const [searchFocused, setSearchFocused] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setAvatarUrl(null);
+      return;
+    }
+    const updateAvatar = () => {
+      const saved = localStorage.getItem(`avatar_${user.id}`);
+      setAvatarUrl(saved);
+    };
+    updateAvatar();
+
+    window.addEventListener("avatarChanged", updateAvatar);
+    window.addEventListener("storage", updateAvatar);
+    return () => {
+      window.removeEventListener("avatarChanged", updateAvatar);
+      window.removeEventListener("storage", updateAvatar);
+    };
+  }, [user?.id]);
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -202,8 +221,8 @@ export default function Header({ onMenuClick }) {
             <p className="text-xs text-on-surface-variant">{roleLabel}</p>
           </div>
           <div className="w-10 h-10 rounded-full border-2 border-primary-container bg-primary-fixed flex items-center justify-center text-primary font-bold text-sm overflow-hidden">
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={user?.name || "User"} className="w-full h-full object-cover" />
             ) : (
               user?.name?.charAt(0)?.toUpperCase() || "U"
             )}

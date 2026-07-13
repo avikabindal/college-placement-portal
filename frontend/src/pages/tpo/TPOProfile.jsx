@@ -67,7 +67,10 @@ const TPOProfile = () => {
         ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
         setAvatarUrl(dataUrl);
-        if (profile?.id) localStorage.setItem(`avatar_${profile.id}`, dataUrl);
+        if (profile?.id) {
+          localStorage.setItem(`avatar_${profile.id}`, dataUrl);
+          window.dispatchEvent(new Event("avatarChanged"));
+        }
       };
       img.src = ev.target.result;
     };
@@ -77,7 +80,10 @@ const TPOProfile = () => {
 
   const handleRemoveAvatar = useCallback(() => {
     setAvatarUrl(null);
-    if (profile?.id) localStorage.removeItem(`avatar_${profile.id}`);
+    if (profile?.id) {
+      localStorage.removeItem(`avatar_${profile.id}`);
+      window.dispatchEvent(new Event("avatarChanged"));
+    }
   }, [profile?.id]);
 
   const handleProfileChange = (e) => {

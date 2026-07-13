@@ -129,7 +129,10 @@ export default function Settings() {
         ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
         setAvatarUrl(dataUrl);
-        if (user?.id) localStorage.setItem(`avatar_${user.id}`, dataUrl);
+        if (user?.id) {
+          localStorage.setItem(`avatar_${user.id}`, dataUrl);
+          window.dispatchEvent(new Event("avatarChanged"));
+        }
       };
       img.src = ev.target.result;
     };
@@ -139,7 +142,10 @@ export default function Settings() {
 
   const handleRemoveAvatar = useCallback(() => {
     setAvatarUrl(null);
-    if (user?.id) localStorage.removeItem(`avatar_${user.id}`);
+    if (user?.id) {
+      localStorage.removeItem(`avatar_${user.id}`);
+      window.dispatchEvent(new Event("avatarChanged"));
+    }
   }, [user?.id]);
 
   const roleLabels = {

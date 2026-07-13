@@ -10,6 +10,7 @@ export default function Header({ onMenuClick }) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [avatarUrl, setAvatarUrl] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.id) {

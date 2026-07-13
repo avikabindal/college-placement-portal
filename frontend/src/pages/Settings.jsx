@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import api from "../api/axios";
@@ -100,6 +100,48 @@ export default function Settings() {
   const getInitials = (name = "") =>
     name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
+  // ── Avatar (stored per-user in localStorage) ──
+  const avatarInputRef = useRef(null);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarHover, setAvatarHover] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const saved = localStorage.getItem(`avatar_${user.id}`);
+    if (saved) setAvatarUrl(saved);
+  }, [user?.id]);
+
+  const handleAvatarChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const SIZE = 200;
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        const ctx = canvas.getContext("2d");
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        setAvatarUrl(dataUrl);
+        if (user?.id) localStorage.setItem(`avatar_${user.id}`, dataUrl);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }, [user?.id]);
+
+  const handleRemoveAvatar = useCallback(() => {
+    setAvatarUrl(null);
+    if (user?.id) localStorage.removeItem(`avatar_${user.id}`);
+  }, [user?.id]);
+
   const roleLabels = {
     tpo: "ADMINISTRATOR",
     student: "STUDENT PROFILE",
@@ -144,12 +186,44 @@ export default function Settings() {
           <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm flex flex-col items-center justify-between text-center relative overflow-hidden hover-lift transition-all duration-300">
             <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-primary/10 to-secondary-container/10 border-b border-outline-variant/35" />
             <div className="relative mt-8">
-              <div className="w-24 h-24 rounded-2xl bg-primary text-on-primary font-black text-2xl flex items-center justify-center border-4 border-white shadow-md relative overflow-hidden group">
-                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                {getInitials(user?.name)}
+              {/* Hidden file input */}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+                id="settings-avatar-input"
+              />
+              <div
+                className="w-24 h-24 rounded-2xl bg-primary text-on-primary font-black text-2xl flex items-center justify-center border-4 border-white shadow-md relative overflow-hidden cursor-pointer"
+                onMouseEnter={() => setAvatarHover(true)}
+                onMouseLeave={() => setAvatarHover(false)}
+                onClick={() => avatarInputRef.current?.click()}
+                title="Click to change photo"
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(user?.name)
+                )}
+                {avatarHover && (
+                  <div className="absolute inset-0 bg-black/45 flex flex-col items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-xl">photo_camera</span>
+                    <span className="text-white text-[8px] font-semibold mt-0.5">Change</span>
+                  </div>
+                )}
               </div>
               <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full" title="Active Account" />
             </div>
+            {avatarUrl && (
+              <button
+                onClick={handleRemoveAvatar}
+                className="mt-1 text-[10px] text-on-surface-variant hover:text-error hover:underline"
+              >
+                Remove photo
+              </button>
+            )}
             
             <div className="mt-4 space-y-1">
               <h3 className="font-extrabold text-on-surface text-lg">{user?.name}</h3>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../../api/axios";
 
 const TPOProfile = () => {
@@ -6,6 +6,9 @@ const TPOProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("profile");
+  const avatarInputRef = useRef(null);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarHover, setAvatarHover] = useState(false);
 
   // Profile edit state
   const [editingProfile, setEditingProfile] = useState(false);
@@ -38,6 +41,44 @@ const TPOProfile = () => {
   };
 
   useEffect(() => { fetchProfile(); }, []);
+
+  // Load saved avatar from localStorage once we know the user id
+  useEffect(() => {
+    if (!profile?.id) return;
+    const saved = localStorage.getItem(`avatar_${profile.id}`);
+    if (saved) setAvatarUrl(saved);
+  }, [profile?.id]);
+
+  const handleAvatarChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const SIZE = 200;
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        const ctx = canvas.getContext("2d");
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        setAvatarUrl(dataUrl);
+        if (profile?.id) localStorage.setItem(`avatar_${profile.id}`, dataUrl);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }, [profile?.id]);
+
+  const handleRemoveAvatar = useCallback(() => {
+    setAvatarUrl(null);
+    if (profile?.id) localStorage.removeItem(`avatar_${profile.id}`);
+  }, [profile?.id]);
 
   const handleProfileChange = (e) => {
     setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
@@ -163,8 +204,43 @@ const TPOProfile = () => {
       {/* Profile Hero Card */}
       <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-6 mb-6 text-white">
         <div className="flex items-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-2xl font-bold shrink-0 border-2 border-white/30">
-            {getInitials(profile?.name)}
+          {/* Hidden file input */}
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+            id="tpo-avatar-input"
+          />
+          <div className="flex flex-col items-center shrink-0">
+            <div
+              className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-2xl font-bold border-2 border-white/30 cursor-pointer overflow-hidden relative"
+              onMouseEnter={() => setAvatarHover(true)}
+              onMouseLeave={() => setAvatarHover(false)}
+              onClick={() => avatarInputRef.current?.click()}
+              title="Click to change photo"
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                getInitials(profile?.name)
+              )}
+              {avatarHover && (
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-2xl">
+                  <span className="material-symbols-outlined text-white text-xl">photo_camera</span>
+                  <span className="text-white text-[8px] font-semibold mt-0.5">Change</span>
+                </div>
+              )}
+            </div>
+            {avatarUrl && (
+              <button
+                onClick={handleRemoveAvatar}
+                className="mt-1 text-[9px] text-white/70 hover:text-white hover:underline"
+              >
+                Remove
+              </button>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-xl font-bold truncate">{profile?.name}</h2>

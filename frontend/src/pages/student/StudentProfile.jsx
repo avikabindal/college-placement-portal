@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../../api/axios";
 
 const BRANCHES = [
@@ -26,6 +26,9 @@ export default function StudentProfile() {
   const [success, setSuccess] = useState("");
   const [skillInput, setSkillInput] = useState("");
   const skillInputRef = useRef(null);
+  const avatarInputRef = useRef(null);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarHover, setAvatarHover] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -79,6 +82,45 @@ export default function StudentProfile() {
     };
     fetchProfile();
   }, []);
+
+  // Load saved avatar from localStorage once we know the user id
+  useEffect(() => {
+    if (!profile?.id) return;
+    const saved = localStorage.getItem(`avatar_${profile.id}`);
+    if (saved) setAvatarUrl(saved);
+  }, [profile?.id]);
+
+  const handleAvatarChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const SIZE = 200;
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        const ctx = canvas.getContext("2d");
+        // centre-crop to square
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        setAvatarUrl(dataUrl);
+        if (profile?.id) localStorage.setItem(`avatar_${profile.id}`, dataUrl);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }, [profile?.id]);
+
+  const handleRemoveAvatar = useCallback(() => {
+    setAvatarUrl(null);
+    if (profile?.id) localStorage.removeItem(`avatar_${profile.id}`);
+  }, [profile?.id]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -178,9 +220,47 @@ export default function StudentProfile() {
           <div className="bg-white rounded-xl border border-outline-variant shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-24 bg-secondary-container/20" />
             <div className="relative pt-10 pb-6 flex flex-col items-center text-center px-6">
-              <div className="w-28 h-28 rounded-2xl border-4 border-white shadow-lg bg-secondary-container flex items-center justify-center text-3xl font-bold text-on-secondary relative z-10">
-                {getInitials(form.name || profile?.name)}
+
+              {/* Clickable Avatar */}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+                id="student-avatar-input"
+              />
+              <div
+                className="w-28 h-28 rounded-2xl border-4 border-white shadow-lg bg-secondary-container flex items-center justify-center text-3xl font-bold text-on-secondary relative z-10 cursor-pointer overflow-hidden"
+                onMouseEnter={() => setAvatarHover(true)}
+                onMouseLeave={() => setAvatarHover(false)}
+                onClick={() => avatarInputRef.current?.click()}
+                title="Click to change photo"
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(form.name || profile?.name)
+                )}
+                {/* Camera overlay on hover */}
+                {avatarHover && (
+                  <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center rounded-2xl">
+                    <span className="material-symbols-outlined text-white text-2xl">photo_camera</span>
+                    <span className="text-white text-[9px] font-semibold mt-0.5">Change</span>
+                  </div>
+                )}
               </div>
+
+              {/* Remove photo link */}
+              {avatarUrl && (
+                <button
+                  onClick={handleRemoveAvatar}
+                  className="mt-1 text-[10px] text-error hover:underline"
+                >
+                  Remove photo
+                </button>
+              )}
+
               <h1 className="text-xl font-bold text-on-surface mt-3">{form.name || profile?.name || "Your Name"}</h1>
               <p className="text-sm text-on-surface-variant">{form.branch || "Add your branch"}</p>
 

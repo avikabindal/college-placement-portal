@@ -11,7 +11,7 @@ dotenv.config();
 const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://college-placement-portal-hvasai9j5-career-connect1.vercel.app"
+  "https://college-placement-portal-81uwah92i-career-connect1.vercel.app"
 ];
 
 app.use(cors({

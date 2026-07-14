@@ -2,13 +2,15 @@ const request = require("supertest");
 
 // Mock Supabase module (must be defined before requiring app/server)
 jest.mock("../database/supabase", () => {
-  const mockSingle = jest.fn();
+  const mockSingle = jest.fn().mockResolvedValue({ data: null, error: null });
   const mockEq = jest.fn(() => ({
     single: mockSingle,
+    maybeSingle: mockSingle,
   }));
   const mockSelect = jest.fn(() => ({
     eq: mockEq,
     single: mockSingle,
+    maybeSingle: mockSingle,
   }));
   const mockInsert = jest.fn();
   const mockFromChain = jest.fn(() => ({
@@ -103,6 +105,26 @@ describe("Auth Controller Unit Tests", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toContain("Self-registration is only allowed for students and TPOs");
+    });
+
+    it("should block registration if email is already registered", async () => {
+      // Mock lookup returning an existing user ID
+      supabaseAdmin.from().select().eq().single.mockResolvedValue({
+        data: { id: "existing-user-id" },
+        error: null,
+      });
+
+      const res = await request(app)
+        .post("/users/register")
+        .send({
+          name: "Duplicate User",
+          email: "student@jietjodhpur.ac.in",
+          password: "password123",
+          role: "student",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("This email address is already registered.");
     });
   });
 

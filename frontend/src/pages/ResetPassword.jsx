@@ -7,6 +7,8 @@ export default function ResetPassword() {
   const [token, setToken] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -115,28 +117,52 @@ export default function ResetPassword() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">New Password</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => { setNewPassword(e.target.value); setError(""); }}
-                  placeholder="Min 8 characters"
-                  className="w-full px-4 py-2.5 border border-outline-variant bg-surface-bright rounded-lg text-sm focus-glow bg-white"
-                  required
-                  disabled={loading || !token}
-                />
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => { setNewPassword(e.target.value); setError(""); }}
+                    placeholder="Min 8 characters"
+                    className="w-full pl-4 pr-11 py-2.5 border border-outline-variant bg-surface-bright rounded-lg text-sm focus-glow bg-white"
+                    required
+                    disabled={loading || !token}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface focus:outline-none transition-colors"
+                    disabled={loading || !token}
+                  >
+                    <span className="material-symbols-outlined text-[20px] select-none align-middle">
+                      {showNewPassword ? "visibility_off" : "visibility"}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Confirm New Password</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
-                  placeholder="Confirm new password"
-                  className="w-full px-4 py-2.5 border border-outline-variant bg-surface-bright rounded-lg text-sm focus-glow bg-white"
-                  required
-                  disabled={loading || !token}
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
+                    placeholder="Confirm new password"
+                    className="w-full pl-4 pr-11 py-2.5 border border-outline-variant bg-surface-bright rounded-lg text-sm focus-glow bg-white"
+                    required
+                    disabled={loading || !token}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface focus:outline-none transition-colors"
+                    disabled={loading || !token}
+                  >
+                    <span className="material-symbols-outlined text-[20px] select-none align-middle">
+                      {showConfirmPassword ? "visibility_off" : "visibility"}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               <button

@@ -16,6 +16,23 @@ const register = async (req, res) => {
     if (!email.toLowerCase().endsWith("@jietjodhpur.ac.in")) {
       return res.status(400).json({ error: "Only accounts with official @jietjodhpur.ac.in email addresses are allowed to register." });
     }
+
+    // Check if email is already registered
+    const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+
+    console.log("existingProfile query check returned:", existingProfile);
+    if (profileCheckError) {
+      console.error("Error checking existing profile:", profileCheckError);
+    }
+    if (existingProfile) {
+      console.log("Blocking registration: email already registered:", email);
+      return res.status(400).json({ error: "This email address is already registered." });
+    }
+
     if (role === "tpo") {
       const tpoKey = req.body.tpo_key || req.headers["x-tpo-key"];
       const expectedKey = process.env.TPO_REGISTRATION_KEY;
@@ -44,6 +61,7 @@ const register = async (req, res) => {
       const { error: insertError } = await supabaseAdmin.from("students").insert({ id: data.user.id });
       if (insertError) {
         console.log("Error inserting student record:", insertError);
+        return res.status(400).json({ error: insertError.message || "Failed to initialize student profile." });
       }
     }
 

@@ -11,6 +11,9 @@ export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [message, setMessage] = useState(null); // { type: 'success' | 'error', text }
@@ -440,39 +443,72 @@ export default function Settings() {
             <div className="grid grid-cols-1 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Current Password</label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
-                  className="w-full px-4 py-2.5 border border-outline-variant bg-surface-bright rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-colors text-on-surface"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    className="w-full pl-4 pr-11 py-2.5 border border-outline-variant bg-surface-bright rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-colors text-on-surface"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface focus:outline-none transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[20px] select-none align-middle">
+                      {showCurrentPassword ? "visibility_off" : "visibility"}
+                    </span>
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">New Password</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Min 8 characters"
-                    className="w-full px-4 py-2.5 border border-outline-variant bg-surface-bright rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-colors text-on-surface"
-                    required
-                    minLength={8}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Min 8 characters"
+                      className="w-full pl-4 pr-11 py-2.5 border border-outline-variant bg-surface-bright rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-colors text-on-surface"
+                      required
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface focus:outline-none transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[20px] select-none align-middle">
+                        {showNewPassword ? "visibility_off" : "visibility"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Confirm New Password</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
-                    className="w-full px-4 py-2.5 border border-outline-variant bg-surface-bright rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-colors text-on-surface"
-                    required
-                    minLength={8}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="w-full pl-4 pr-11 py-2.5 border border-outline-variant bg-surface-bright rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-colors text-on-surface"
+                      required
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface focus:outline-none transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[20px] select-none align-middle">
+                        {showConfirmPassword ? "visibility_off" : "visibility"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

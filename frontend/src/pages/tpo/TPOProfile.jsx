@@ -624,12 +624,28 @@ const TPOProfile = () => {
                     change_password: "key",
                     update_avatar: "photo_camera",
                     remove_avatar: "no_photography",
+                    update_email: "mail",
+                    create_company: "domain",
+                    update_company: "domain_verification",
+                    delete_company: "domain_disabled",
+                    create_opportunity: "work",
+                    update_opportunity: "work_update",
+                    approve_opportunity: "playlist_add_check",
+                    delete_opportunity: "work_history",
                   };
                   const colorMap = {
                     update_name: "text-indigo-500 bg-indigo-50",
                     change_password: "text-rose-500 bg-rose-50",
                     update_avatar: "text-emerald-500 bg-emerald-50",
                     remove_avatar: "text-amber-500 bg-amber-50",
+                    update_email: "text-cyan-500 bg-cyan-50",
+                    create_company: "text-purple-500 bg-purple-50",
+                    update_company: "text-blue-500 bg-blue-50",
+                    delete_company: "text-red-500 bg-red-50",
+                    create_opportunity: "text-emerald-500 bg-emerald-50",
+                    update_opportunity: "text-violet-500 bg-violet-50",
+                    approve_opportunity: "text-teal-500 bg-teal-50",
+                    delete_opportunity: "text-orange-500 bg-orange-50",
                   };
                   return (
                     <div key={log.id} className="relative">

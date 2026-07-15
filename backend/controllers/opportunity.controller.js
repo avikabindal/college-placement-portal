@@ -1,4 +1,5 @@
 const { supabaseAdmin } = require("../database/supabase");
+const { createAuditLog } = require("../models/audit.model");
 const { createNotification } = require("./notification.controller");
 const {
   getAllOpportunities, getOpportunityById,
@@ -81,6 +82,23 @@ const createOpp = async (req, res) => {
     }
   }
 
+  if (data && req.user.role === "tpo") {
+    // Get company name
+    const { data: compProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("name")
+      .eq("id", finalCompanyId)
+      .single();
+    const companyName = compProfile?.name || "Company";
+
+    await createAuditLog(
+      req.user.id,
+      req.user.id,
+      "create_opportunity",
+      `Created placement drive "${title}" for "${companyName}"`
+    );
+  }
+
   res.status(201).json(data);
 };
 
@@ -147,6 +165,24 @@ const updateOpp = async (req, res) => {
     }
   }
 
+  if (data && req.user.role === "tpo") {
+    if (status === "open" && opp.status === "pending") {
+      await createAuditLog(
+        req.user.id,
+        req.user.id,
+        "approve_opportunity",
+        `Approved placement drive "${data.title}"`
+      );
+    } else {
+      await createAuditLog(
+        req.user.id,
+        req.user.id,
+        "update_opportunity",
+        `Updated placement drive details for "${data.title}"`
+      );
+    }
+  }
+
   res.json(data);
 };
 
@@ -167,6 +203,16 @@ const deleteOpp = async (req, res) => {
 
   const { error } = await deleteOpportunity(req.params.id);
   if (error) return res.status(500).json({ error: error.message });
+
+  if (req.user.role === "tpo") {
+    await createAuditLog(
+      req.user.id,
+      req.user.id,
+      "delete_opportunity",
+      `Deleted placement drive "${opp.title}"`
+    );
+  }
+
   res.json({ message: "Opportunity deleted successfully" });
 };
 

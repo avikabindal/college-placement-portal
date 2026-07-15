@@ -1,4 +1,5 @@
 const { supabaseAdmin, supabaseAuth } = require("../database/supabase");
+const { createAuditLog } = require("../models/audit.model");
 
 // List all companies (TPO only)
 const listCompanies = async (req, res) => {
@@ -106,6 +107,15 @@ const createCompany = async (req, res) => {
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
       await supabaseAdmin.from("profiles").delete().eq("id", authUser.user.id);
       return res.status(500).json({ error: companyError.message });
+    }
+
+    if (req.user.role === "tpo") {
+      await createAuditLog(
+        req.user.id,
+        req.user.id,
+        "create_company",
+        `Created company account: "${name}" (${email})`
+      );
     }
 
     res.status(201).json({ message: "Company created successfully", company: companyData });
@@ -269,6 +279,20 @@ const updateCompanyProfile = async (req, res) => {
       data = fetchedData;
     }
 
+    if (req.user.role === "tpo") {
+      const companyName = data?.profiles?.name || "Company";
+      let detailMsg = `Updated company profile details for "${companyName}"`;
+      if (is_active !== undefined) {
+        detailMsg = `Changed company "${companyName}" status to ${is_active ? 'Active' : 'Inactive'}`;
+      }
+      await createAuditLog(
+        req.user.id,
+        req.user.id,
+        "update_company",
+        detailMsg
+      );
+    }
+
     res.json({ message: "Company updated successfully", company: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -302,6 +326,15 @@ const deleteCompany = async (req, res) => {
       });
     }
 
+    // Fetch company name before deleting
+    const { data: compProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("name, email")
+      .eq("id", id)
+      .single();
+    const companyName = compProfile?.name || "Company";
+    const companyEmail = compProfile?.email || "";
+
     // Delete company record
     const { error: companyError } = await supabaseAdmin.from("companies").delete().eq("id", id);
 
@@ -321,6 +354,15 @@ const deleteCompany = async (req, res) => {
 
     if (authError) {
       return res.status(500).json({ error: authError.message });
+    }
+
+    if (req.user.role === "tpo") {
+      await createAuditLog(
+        req.user.id,
+        req.user.id,
+        "delete_company",
+        `Deleted company account: "${companyName}" (${companyEmail})`
+      );
     }
 
     res.json({ message: "Company deleted successfully" });

@@ -183,6 +183,14 @@ const updateProfile = async (req, res) => {
     if (authUpdateError) {
       return res.status(400).json({ error: authUpdateError.message });
     }
+    if (userRole === "tpo" && oldProfile && oldProfile.email !== email) {
+      await createAuditLog(
+        userId,
+        userId,
+        "update_email",
+        `Updated account email from "${oldProfile.email}" to "${email}"`
+      );
+    }
   }
 
   res.json({
@@ -194,13 +202,14 @@ const updateProfile = async (req, res) => {
 // PUT /users/password
 const changePassword = async (req, res) => {
   const userId = req.user.id;
-  const { currentPassword, newPassword } = req.body;
+  const currentPassword = req.body.currentPassword || req.body.current_password;
+  const newPassword = req.body.newPassword || req.body.new_password;
 
   if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: "currentPassword and newPassword are required" });
+    return res.status(400).json({ error: "currentPassword (or current_password) and newPassword (or new_password) are required" });
   }
   if (newPassword.length < 8) {
-    return res.status(400).json({ error: "newPassword must be at least 8 characters" });
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
   }
 
   // Get the user's current email (needed to verify currentPassword via sign-in)

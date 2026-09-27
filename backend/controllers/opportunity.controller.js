@@ -5,6 +5,8 @@ const {
   getAllOpportunities, getOpportunityById,
   createOpportunity, updateOpportunity, deleteOpportunity,
 } = require("../models/opportunity.model");
+const { getStudentById } = require("../models/student.model");
+const { checkStudentEligibility } = require("../utils/eligibility");
 
 const listOpportunities = async (req, res) => {
   const filters = {};
@@ -18,6 +20,23 @@ const listOpportunities = async (req, res) => {
   let filteredData = data;
   if (req.user.role === "student") {
     filteredData = data.filter(opp => opp.companies && opp.companies.is_active !== false);
+
+    // Fetch student profile to evaluate eligibility
+    const { data: student } = await getStudentById(req.user.id);
+
+    filteredData = filteredData.map(opp => {
+      const eligibility = checkStudentEligibility(opp, student);
+      return {
+        ...opp,
+        is_eligible: eligibility.isEligible,
+        eligibility_reason: eligibility.reason,
+      };
+    });
+
+    // Unless explicitly requested to show all (e.g. ?show_all=true or ?eligible_only=false), show only eligible job postings to the student
+    if (req.query.show_all !== "true" && req.query.eligible_only !== "false") {
+      filteredData = filteredData.filter(opp => opp.is_eligible);
+    }
   }
 
   res.json(filteredData);
@@ -106,8 +125,23 @@ const getOpp = async (req, res) => {
   const { data, error } = await getOpportunityById(req.params.id);
   if (error || !data) return res.status(404).json({ error: "Opportunity not found" });
 
-  if (req.user.role === "student" && data.companies && data.companies.is_active === false) {
-    return res.status(404).json({ error: "Opportunity not found" });
+  if (req.user.role === "student") {
+    if (data.companies && data.companies.is_active === false) {
+      return res.status(404).json({ error: "Opportunity not found" });
+    }
+
+    const { data: student } = await getStudentById(req.user.id);
+    const eligibility = checkStudentEligibility(data, student);
+    data.is_eligible = eligibility.isEligible;
+    data.eligibility_reason = eligibility.reason;
+
+    if (!eligibility.isEligible && req.query.allow_view !== "true") {
+      return res.status(403).json({
+        error: "Access denied. You are not eligible for this job posting.",
+        eligibility_reason: eligibility.reason,
+        is_eligible: false,
+      });
+    }
   }
 
   if (req.user.role === "company" && data.company_id !== req.user.id) {

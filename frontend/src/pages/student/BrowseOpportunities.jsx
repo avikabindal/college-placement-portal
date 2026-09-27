@@ -40,10 +40,15 @@ const BrowseOpportunities = () => {
   const [showNoteFor, setShowNoteFor] = useState(null);
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("all");
+  const [eligibilityFilter, setEligibilityFilter] = useState("eligible"); // "eligible" | "all"
   const [profileResumeUrl, setProfileResumeUrl] = useState("");
+  const [studentProfile, setStudentProfile] = useState(null);
 
   useEffect(() => {
-    api.get("/opportunities")
+    setLoading(true);
+    const endpoint = eligibilityFilter === "all" ? "/opportunities?show_all=true" : "/opportunities";
+    
+    api.get(endpoint)
       .then((res) => {
         const sorted = (res.data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         setOpportunities(sorted);
@@ -51,7 +56,9 @@ const BrowseOpportunities = () => {
       })
       .catch(() => setError("Failed to load opportunities."))
       .finally(() => setLoading(false));
+  }, [eligibilityFilter]);
 
+  useEffect(() => {
     if (user?.id) {
       api.get(`/applications/student/${user.id}`)
         .then((res) => {
@@ -62,11 +69,12 @@ const BrowseOpportunities = () => {
 
       api.get("/students/profile")
         .then((res) => {
+          setStudentProfile(res.data);
           if (res.data?.resume_url) {
             setProfileResumeUrl(res.data.resume_url);
           }
         })
-        .catch((err) => console.log("Profile prefill fetch error:", err));
+        .catch((err) => console.log("Profile fetch error:", err));
     }
   }, [user?.id]);
 
@@ -119,8 +127,28 @@ const BrowseOpportunities = () => {
   const locations = [...new Set(opportunities.map((o) => o.location).filter(Boolean))];
   const closingSoonCount = opportunities.filter((o) => isClosingSoon(o.apply_deadline)).length;
 
+  const isProfileIncomplete = !studentProfile?.cgpa || !studentProfile?.branch;
+
   return (
     <div className="pl-8 pr-6 py-6 max-w-container-max mx-auto flex flex-col gap-8">
+
+      {/* Profile Notice if incomplete */}
+      {isProfileIncomplete && (
+        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-amber-600">warning</span>
+            <p className="text-xs font-semibold">
+              Your profile is missing CGPA or Branch details. Complete your profile to ensure you are shown all job postings you qualify for.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/student/profile")}
+            className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold shrink-0 hover:bg-amber-700"
+          >
+            Update Profile
+          </button>
+        </div>
+      )}
 
       {/* Header + Filters */}
       <section className="flex flex-col gap-6">
@@ -128,10 +156,34 @@ const BrowseOpportunities = () => {
           <div>
             <h2 className="text-3xl font-bold text-on-surface">Explore Opportunities</h2>
             <p className="text-on-surface-variant mt-1">
-              {filtered.length} open role{filtered.length !== 1 ? "s" : ""} available for you
+              {filtered.length} open role{filtered.length !== 1 ? "s" : ""} {eligibilityFilter === "eligible" ? "you are eligible for" : "available"}
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Eligibility Filter Switch */}
+            <div className="flex bg-surface-container border border-outline-variant p-1 rounded-lg text-xs font-semibold">
+              <button
+                onClick={() => setEligibilityFilter("eligible")}
+                className={`px-3 py-1.5 rounded-md transition-all ${
+                  eligibilityFilter === "eligible"
+                    ? "bg-primary text-on-primary shadow-sm"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
+              >
+                Eligible Drives Only
+              </button>
+              <button
+                onClick={() => setEligibilityFilter("all")}
+                className={`px-3 py-1.5 rounded-md transition-all ${
+                  eligibilityFilter === "all"
+                    ? "bg-primary text-on-primary shadow-sm"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
+              >
+                All Drives
+              </button>
+            </div>
+
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-base">
                 search
@@ -303,24 +355,41 @@ const BrowseOpportunities = () => {
                     )}
                   </div>
 
-                  {/* Tags */}
-                  {(opp.cgpa_requirement || opp.eligible_branches || opp.skills_required) && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {opp.cgpa_requirement && (
-                        <span className="text-xs bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded-full font-medium">
-                          Min CGPA: {opp.cgpa_requirement}
-                        </span>
-                      )}
-                      {opp.eligible_branches && (
-                        <span className="text-xs bg-tertiary-fixed text-on-tertiary-fixed-variant px-2 py-0.5 rounded-full font-medium">
-                          {opp.eligible_branches}
-                        </span>
-                      )}
-                      {opp.skills_required && (
-                        <span className="text-xs bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full font-medium">
-                          {opp.skills_required}
-                        </span>
-                      )}
+                  {/* Tags & Eligibility Status */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {opp.is_eligible === false ? (
+                      <span className="text-xs bg-error-container text-on-error-container px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">lock</span>
+                        Ineligible
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                        Eligible
+                      </span>
+                    )}
+
+                    {opp.cgpa_requirement && (
+                      <span className="text-xs bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded-full font-medium">
+                        Min CGPA: {opp.cgpa_requirement}
+                      </span>
+                    )}
+                    {opp.eligible_branches && (
+                      <span className="text-xs bg-tertiary-fixed text-on-tertiary-fixed-variant px-2 py-0.5 rounded-full font-medium">
+                        {opp.eligible_branches}
+                      </span>
+                    )}
+                    {opp.skills_required && (
+                      <span className="text-xs bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full font-medium">
+                        {opp.skills_required}
+                      </span>
+                    )}
+                  </div>
+
+                  {opp.is_eligible === false && opp.eligibility_reason && (
+                    <div className="p-2.5 bg-error-container/30 border border-error/20 rounded-lg text-xs text-on-error-container flex items-start gap-1.5">
+                      <span className="material-symbols-outlined text-sm text-error shrink-0 mt-0.5">info</span>
+                      <span>{opp.eligibility_reason}</span>
                     </div>
                   )}
 
@@ -373,6 +442,15 @@ const BrowseOpportunities = () => {
                         </span>
                         Applied
                       </span>
+                    ) : opp.is_eligible === false ? (
+                      <button
+                        disabled
+                        title={opp.eligibility_reason || "You do not meet the eligibility requirements for this drive"}
+                        className="bg-surface-container-highest text-on-surface-variant/50 px-5 py-2.5 rounded-lg font-bold text-sm cursor-not-allowed flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-sm">lock</span>
+                        Ineligible
+                      </button>
                     ) : (
                       <button
                         onClick={() => {

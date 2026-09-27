@@ -17,9 +17,9 @@ const OpportunityDetail = () => {
   const [showNoteForm, setShowNoteForm] = useState(false);
 
   useEffect(() => {
-    api.get(`/opportunities/${id}`)
+    api.get(`/opportunities/${id}?allow_view=true`)
       .then((res) => setOpp(res.data))
-      .catch(() => setError("Failed to load opportunity."))
+      .catch((err) => setError(err.response?.data?.error || "Failed to load opportunity."))
       .finally(() => setLoading(false));
 
     api.get("/students/profile")
@@ -92,6 +92,7 @@ const OpportunityDetail = () => {
 
   const companyName = opp.companies?.profiles?.name || "Unknown Company";
   const isOpen = opp.status === "open";
+  const isEligible = opp.is_eligible !== false;
 
   return (
     <div className="pl-8 pr-6 py-6 max-w-3xl mx-auto space-y-6">
@@ -120,7 +121,7 @@ const OpportunityDetail = () => {
               <div>
                 <h1 className="text-2xl font-bold text-on-surface leading-tight">{opp.title}</h1>
                 <p className="text-primary font-semibold mt-1">{companyName}</p>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                     isOpen
                       ? "bg-secondary-container text-on-secondary-container"
@@ -128,6 +129,17 @@ const OpportunityDetail = () => {
                   }`}>
                     {isOpen ? "Open" : "Closed"}
                   </span>
+                  {!isEligible ? (
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-error-container text-on-error-container flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">lock</span>
+                      Ineligible
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-secondary-container text-on-secondary-container flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">check_circle</span>
+                      Eligible
+                    </span>
+                  )}
                   {opp.duration && (
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary-fixed text-on-primary-fixed">
                       {opp.duration}
@@ -145,6 +157,15 @@ const OpportunityDetail = () => {
                     <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                     Applied
                   </span>
+                ) : !isEligible ? (
+                  <button
+                    disabled
+                    title={opp.eligibility_reason || "You are not eligible"}
+                    className="px-6 py-2.5 bg-surface-container-highest text-on-surface-variant/50 rounded-xl font-bold text-sm cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-sm">lock</span>
+                    Ineligible
+                  </button>
                 ) : (
                   <button
                     onClick={() => setShowNoteForm(!showNoteForm)}
@@ -156,6 +177,17 @@ const OpportunityDetail = () => {
               </div>
             )}
           </div>
+
+          {/* Ineligible Warning Banner */}
+          {!isEligible && opp.eligibility_reason && (
+            <div className="mt-6 p-4 bg-error-container/30 border border-error/20 rounded-xl text-xs text-on-error-container flex items-start gap-2">
+              <span className="material-symbols-outlined text-base text-error shrink-0 mt-0.5">info</span>
+              <div>
+                <p className="font-bold text-error text-xs uppercase tracking-wider">Ineligibility Notice</p>
+                <p className="mt-0.5">{opp.eligibility_reason}</p>
+              </div>
+            </div>
+          )}
 
           {/* Cover Note & Resume Form */}
           {showNoteForm && !applied && (

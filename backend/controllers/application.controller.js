@@ -3,6 +3,8 @@ const {
   getAllApplications, getApplicationsByStudent, getApplicationsByOpportunity,
   createApplication, updateApplicationStatus, getApplicationById,
 } = require("../models/application.model");
+const { getStudentById } = require("../models/student.model");
+const { checkStudentEligibility } = require("../utils/eligibility");
 const { createNotification } = require("./notification.controller");
 
 const listApplications = async (req, res) => {
@@ -18,7 +20,7 @@ const apply = async (req, res) => {
 
     const { data: opp } = await supabaseAdmin
       .from("opportunities")
-      .select("status, companies(is_active)")
+      .select("*, companies(is_active)")
       .eq("id", opportunity_id)
       .single();
 
@@ -26,12 +28,15 @@ const apply = async (req, res) => {
       return res.status(400).json({ error: "This opportunity is not open for applications" });
     }
 
-    // Fetch student's current resume_url from profile as fallback
-    const { data: student } = await supabaseAdmin
-      .from("students")
-      .select("resume_url")
-      .eq("id", req.user.id)
-      .single();
+    // Fetch full student profile and check eligibility
+    const { data: student } = await getStudentById(req.user.id);
+    const eligibility = checkStudentEligibility(opp, student);
+    if (!eligibility.isEligible) {
+      return res.status(403).json({
+        error: `Ineligible for this job posting: ${eligibility.reason}`,
+        eligibility_reason: eligibility.reason,
+      });
+    }
 
     const finalResumeUrl = resume_url || student?.resume_url || null;
 
